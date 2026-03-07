@@ -592,6 +592,12 @@ async function fetchStation() {
   return await res.json();
 }
 
+async function fetchTides() {
+  const res = await fetch('/.netlify/functions/tides');
+  if (!res.ok) throw new Error('Tides proxy error ' + res.status);
+  return await res.json();
+}
+
 
 // ══════════════════════════════════════════════════════
 //  BUILD TABLE — Windguru data shape
@@ -639,6 +645,8 @@ function buildTableFromWG(wg) {
     dayGroups[key].push(i);
   });
 
+  // expose absHours so renderTableRows can pass timestamps to tideAtTime
+  window._fcAbsHours = absHours;
   return renderTableRows(dayGroups, (i, cs) => {
     const d  = new Date(absHours[i] * 1000);
     const hr = d.getHours().toString().padStart(2,'0') + 'h';
@@ -665,6 +673,7 @@ function renderTableRows(dayGroups, cellFn) {
   let tempRow = '<tr><td class="row-label">Temp (°C)</td>';
   let waveRow = '<tr><td class="row-label">Wave (m)</td>';
   let waveDRow= '<tr><td class="row-label">Wave dir</td>';
+  let tideRow = '<tr><td class="row-label">Tide (m)</td>';
   let starRow = '<tr><td class="row-label">Kite Rating</td>';
 
   let firstDay = true;
@@ -683,13 +692,17 @@ function renderTableRows(dayGroups, cellFn) {
       tempRow += `<td class="fc-cell${cs} temp-cell">${tp}</td>`;
       waveRow += `<td class="fc-cell${cs} wave-cell">${wh}</td>`;
       waveDRow+= `<td class="fc-cell${cs} dir-cell" title="${wdw}°">${dirArrow(wdw)}</td>`;
+      const th = tideAtTime ? tideAtTime(absHours[i]) : null;
+      const tideVal = th != null ? th.toFixed(2) : '—';
+      const tideClass = th != null ? (th > 0.3 ? 'tide-high' : th < -0.3 ? 'tide-low' : '') : '';
+      tideRow += `<td class="fc-cell${cs} tide-cell ${tideClass}">${tideVal}</td>`;
       starRow += `<td class="fc-cell${cs} star-cell" style="color:var(--sand)">${kiteRating(ws)}</td>`;
     });
   });
 
   return `<table class="forecast-table">
     ${dayRow}</tr>${hourRow}</tr>${wsRow}</tr>${wgRow}</tr>
-    ${wdRow}</tr>${tempRow}</tr>${waveRow}</tr>${waveDRow}</tr>${starRow}</tr>
+    ${wdRow}</tr>${tempRow}</tr>${waveRow}</tr>${waveDRow}</tr>${tideRow}</tr>${starRow}</tr>
   </table>`;
 }
 
@@ -746,6 +759,33 @@ function openSpotInfo() {
 }
 
 // ══════════════════════════════════════════════════════
+//  TIDE INTERPOLATION
+// ══════════════════════════════════════════════════════
+// Given raw tide extremes [{time, height, type}], interpolate height at any unix timestamp
+// using sinusoidal interpolation between consecutive highs and lows
+function makeTideInterp(tideData) {
+  if (!tideData || !tideData.extremes || tideData.extremes.length < 2) return null;
+  const pts = tideData.extremes.map(e => ({
+    t: typeof e.dt === 'number' ? e.dt : new Date(e.date || e.time || e.datetime).getTime()/1000,
+    h: e.height != null ? e.height : (e.level != null ? e.level : 0),
+  })).sort((a,b) => a.t - b.t);
+
+  return function(ts) {
+    if (ts <= pts[0].t) return pts[0].h;
+    if (ts >= pts[pts.length-1].t) return pts[pts.length-1].h;
+    let lo = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (pts[i].t <= ts && ts <= pts[i+1].t) { lo = i; break; }
+    }
+    const a = pts[lo], b = pts[lo+1];
+    const frac = (ts - a.t) / (b.t - a.t);
+    // cosine interpolation for smooth sinusoidal tide curve
+    const cos = (1 - Math.cos(frac * Math.PI)) / 2;
+    return a.h + (b.h - a.h) * cos;
+  };
+}
+
+// ══════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════
 async function init() {
@@ -776,6 +816,14 @@ async function init() {
     } catch(_) {
       stats = liveStatsFromWG(wg);
       badge.textContent = 'Windguru · WG Mix · ' + nowTime();
+    }
+
+    // Fetch tides (non-blocking — table renders even if tides fail)
+    try {
+      const tideData = await fetchTides();
+      window.tideAtTime = makeTideInterp(tideData);
+    } catch(_) {
+      window.tideAtTime = null;
     }
 
     wrap.innerHTML = buildTableFromWG(wg);
