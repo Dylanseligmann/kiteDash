@@ -599,40 +599,23 @@ async function fetchStation() {
 //  hours[] are unix timestamps, initdate is the model run date
 // ══════════════════════════════════════════════════════
 function buildTableFromWG(wg) {
-  // Handle multiple possible Windguru JSON shapes
-  let hours, wsArr, wgArr, wdArr, tmpArr, waveArr, waveDArr;
-
-  if (Array.isArray(wg.hours) && wg.hours.length > 0) {
-    // Shape A: top-level arrays
-    hours    = wg.hours;
-    wsArr    = wg.wspd      || [];
-    wgArr    = wg.wgst      || [];
-    wdArr    = wg.wdir      || [];
-    tmpArr   = wg.tmp       || [];
-    waveArr  = wg.waves     || [];
-    waveDArr = wg.wdirwaves || [];
-  } else if (Array.isArray(wg.FCST) && wg.FCST.length > 0) {
-    // Shape B: nested under FCST[]
-    const f  = wg.FCST[0];
-    hours    = f.hours     || f.hr         || f.HOURS     || [];
-    wsArr    = f.WINDSPEED || f.wspd       || f.windspeed  || [];
-    wgArr    = f.GUST      || f.wgst       || f.gust       || [];
-    wdArr    = f.WINDDIR   || f.wdir       || f.winddir    || [];
-    tmpArr   = f.TMPE      || f.tmp        || f.tmpe       || [];
-    waveArr  = f.HTSGW     || f.waves      || f.htsgw      || [];
-    waveDArr = f.WVDIR     || f.wdirwaves  || f.wvdir      || [];
-  } else {
+  // wg.fcst is an OBJECT (not array), hours[] are offsets from initstamp
+  const f = wg.fcst || wg.FCST;
+  if (!f || !f.hours) {
     const keys = Object.keys(wg).join(', ');
-    const fcstKeys = (wg.FCST?.[0] || wg.fcst?.[0]) ? Object.keys(wg.FCST?.[0] || wg.fcst[0]).join(', ') : 'none';
-    return `<div class="fc-loading" style="color:var(--danger)">⚠ Unexpected data shape.<br><small style="opacity:.6">top: ${keys}</small><br><small style="opacity:.6">fcst[0]: ${fcstKeys}</small></div>`;
+    return '<div class="fc-loading" style="color:var(--danger)">&#9888; No forecast data: ' + keys + '</div>';
   }
 
-  // Hours may be unix timestamps (>1e8) or hour-offsets from initdate
-  const initMs = wg.initdate
-    ? new Date(wg.initdate).getTime()
-    : (wg.FCST?.[0]?.initdate ? new Date(wg.FCST[0].initdate).getTime()
-    : (wg.fcst?.[0]?.initdate ? new Date(wg.fcst[0].initdate).getTime() : Date.now()));
-  const absHours = hours.map(h => h > 1e8 ? h : Math.floor(initMs / 1000) + h * 3600);
+  const initS    = f.initstamp || wg.wgmodel && wg.wgmodel.initstamp || Math.floor(Date.now()/1000);
+  const absHours = f.hours.map(h => initS + h * 3600);
+
+  const wsArr   = f.WINDSPD  || f.WINDSPEED || f.wspd || [];
+  const wgArr   = f.GUST     || f.wgst               || [];
+  const wdArr   = f.WINDDIR  || f.wdir               || [];
+  const tmpArr  = f.TMPE     || f.TMP || f.tmp        || [];
+  const sea     = wg.fcst_sea || {};
+  const waveArr = sea.HTSGW  || sea.waves || f.HTSGW  || [];
+  const waveDArr= sea.WVDIR  || sea.wdirwaves         || [];
 
   const nowS = Math.floor(Date.now() / 1000);
   const indices = [];
@@ -645,7 +628,7 @@ function buildTableFromWG(wg) {
   }
 
   if (indices.length === 0) {
-    return `<div class="fc-loading" style="color:var(--sand)">⚠ No upcoming data found. hours[0]=${absHours[0]}, now=${nowS}</div>`;
+    return '<div class="fc-loading" style="color:var(--sand)">&#9888; No upcoming data.</div>';
   }
 
   const dayGroups = {};
@@ -662,7 +645,7 @@ function buildTableFromWG(wg) {
     const ws = wsToKts(wsArr[i]  || 0);
     const wg = wsToKts(wgArr[i]  || 0);
     const wd = Math.round(wdArr[i]  || 0);
-    const tp = Math.round(tmpArr[i] ?? 0);
+    const tp = Math.round(tmpArr[i] != null ? tmpArr[i] : 0);
     const wh = waveArr[i]  != null ? Number(waveArr[i]).toFixed(1) : '—';
     const wdw= waveDArr[i] != null ? Math.round(waveDArr[i]) : wd;
     return { hr, ws, wg, wd, tp, wh, wdw, cs };
@@ -730,30 +713,27 @@ function updateLiveStats({ ws, wg, wd, tp, wh }) {
 }
 
 function liveStatsFromWG(wg) {
-  let hours, wspd, wgst, wdir, tmp, waves;
-  if (Array.isArray(wg.hours) && wg.hours.length > 0) {
-    hours = wg.hours; wspd = wg.wspd; wgst = wg.wgst; wdir = wg.wdir; tmp = wg.tmp; waves = wg.waves;
-  } else if (Array.isArray(wg.FCST) && wg.FCST.length > 0) {
-    const f = wg.FCST[0];
-    const initMs = wg.initdate ? new Date(wg.initdate).getTime() : (f.initdate ? new Date(f.initdate).getTime() : Date.now());
-    const rawH = f.hours || f.hr || [];
-    hours = rawH.map(h => h > 1e8 ? h : Math.floor(initMs/1000) + h*3600);
-    wspd = f.WINDSPEED || f.wspd || f.windspeed || []; wgst = f.GUST || f.wgst || f.gust || [];
-    wdir = f.WINDDIR || f.wdir || f.winddir || []; tmp = f.TMPE || f.tmp || f.tmpe || []; waves = f.HTSGW || f.waves || f.htsgw || [];
-  } else {
-    return { ws:0, wg:0, wd:0, tp:0, wh:'—' };
-  }
+  const f = wg.fcst || wg.FCST;
+  if (!f || !f.hours) return { ws:0, wg:0, wd:0, tp:0, wh:'—' };
+  const initS    = f.initstamp || wg.wgmodel && wg.wgmodel.initstamp || Math.floor(Date.now()/1000);
+  const absHours = f.hours.map(h => initS + h * 3600);
   const nowS = Math.floor(Date.now() / 1000);
   let idx = 0;
-  for (let i = 0; i < hours.length; i++) {
-    if (hours[i] <= nowS) idx = i; else break;
+  for (let i = 0; i < absHours.length; i++) {
+    if (absHours[i] <= nowS) idx = i; else break;
   }
+  const sea   = wg.fcst_sea || {};
+  const waves = sea.HTSGW || sea.waves || f.HTSGW || [];
+  const wspd  = f.WINDSPD || f.WINDSPEED || f.wspd || [];
+  const wgst  = f.GUST    || f.wgst      || [];
+  const wdir  = f.WINDDIR || f.wdir      || [];
+  const tmpe  = f.TMPE    || f.TMP       || [];
   return {
-    ws: wsToKts(wspd?.[idx]  || 0),
-    wg: wsToKts(wgst?.[idx]  || 0),
-    wd: Math.round(wdir?.[idx]  || 0),
-    tp: Math.round(tmp?.[idx]   ?? 0),
-    wh: waves?.[idx] != null ? Number(waves[idx]).toFixed(1) : '—',
+    ws: wsToKts(wspd[idx]  || 0),
+    wg: wsToKts(wgst[idx]  || 0),
+    wd: Math.round(wdir[idx]  || 0),
+    tp: Math.round(tmpe[idx]  != null ? tmpe[idx] : 0),
+    wh: waves[idx] != null ? Number(waves[idx]).toFixed(1) : '—',
   };
 }
 
