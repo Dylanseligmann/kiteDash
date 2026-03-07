@@ -611,25 +611,27 @@ function buildTableFromWG(wg) {
     tmpArr   = wg.tmp       || [];
     waveArr  = wg.waves     || [];
     waveDArr = wg.wdirwaves || [];
-  } else if (Array.isArray(wg.fcst) && wg.fcst.length > 0) {
-    // Shape B: nested under fcst[]
-    const f  = wg.fcst[0];
-    hours    = f.hours     || f.hr        || [];
-    wsArr    = f.WINDSPEED || f.wspd      || [];
-    wgArr    = f.GUST      || f.wgst      || [];
-    wdArr    = f.WINDDIR   || f.wdir      || [];
-    tmpArr   = f.TMPE      || f.tmp       || [];
-    waveArr  = f.HTSGW     || f.waves     || [];
-    waveDArr = f.WVDIR     || f.wdirwaves || [];
+  } else if (Array.isArray(wg.FCST) && wg.FCST.length > 0) {
+    // Shape B: nested under FCST[]
+    const f  = wg.FCST[0];
+    hours    = f.hours     || f.hr         || f.HOURS     || [];
+    wsArr    = f.WINDSPEED || f.wspd       || f.windspeed  || [];
+    wgArr    = f.GUST      || f.wgst       || f.gust       || [];
+    wdArr    = f.WINDDIR   || f.wdir       || f.winddir    || [];
+    tmpArr   = f.TMPE      || f.tmp        || f.tmpe       || [];
+    waveArr  = f.HTSGW     || f.waves      || f.htsgw      || [];
+    waveDArr = f.WVDIR     || f.wdirwaves  || f.wvdir      || [];
   } else {
     const keys = Object.keys(wg).join(', ');
-    return `<div class="fc-loading" style="color:var(--danger)">⚠ Unexpected data shape.<br><small style="opacity:.6">${keys}</small></div>`;
+    const fcstKeys = (wg.FCST?.[0] || wg.fcst?.[0]) ? Object.keys(wg.FCST?.[0] || wg.fcst[0]).join(', ') : 'none';
+    return `<div class="fc-loading" style="color:var(--danger)">⚠ Unexpected data shape.<br><small style="opacity:.6">top: ${keys}</small><br><small style="opacity:.6">fcst[0]: ${fcstKeys}</small></div>`;
   }
 
   // Hours may be unix timestamps (>1e8) or hour-offsets from initdate
   const initMs = wg.initdate
     ? new Date(wg.initdate).getTime()
-    : (wg.fcst?.[0]?.initdate ? new Date(wg.fcst[0].initdate).getTime() : Date.now());
+    : (wg.FCST?.[0]?.initdate ? new Date(wg.FCST[0].initdate).getTime()
+    : (wg.fcst?.[0]?.initdate ? new Date(wg.fcst[0].initdate).getTime() : Date.now()));
   const absHours = hours.map(h => h > 1e8 ? h : Math.floor(initMs / 1000) + h * 3600);
 
   const nowS = Math.floor(Date.now() / 1000);
@@ -731,13 +733,13 @@ function liveStatsFromWG(wg) {
   let hours, wspd, wgst, wdir, tmp, waves;
   if (Array.isArray(wg.hours) && wg.hours.length > 0) {
     hours = wg.hours; wspd = wg.wspd; wgst = wg.wgst; wdir = wg.wdir; tmp = wg.tmp; waves = wg.waves;
-  } else if (Array.isArray(wg.fcst) && wg.fcst.length > 0) {
-    const f = wg.fcst[0];
+  } else if (Array.isArray(wg.FCST) && wg.FCST.length > 0) {
+    const f = wg.FCST[0];
     const initMs = wg.initdate ? new Date(wg.initdate).getTime() : (f.initdate ? new Date(f.initdate).getTime() : Date.now());
     const rawH = f.hours || f.hr || [];
     hours = rawH.map(h => h > 1e8 ? h : Math.floor(initMs/1000) + h*3600);
-    wspd = f.WINDSPEED || f.wspd || []; wgst = f.GUST || f.wgst || [];
-    wdir = f.WINDDIR || f.wdir || []; tmp = f.TMPE || f.tmp || []; waves = f.HTSGW || f.waves || [];
+    wspd = f.WINDSPEED || f.wspd || f.windspeed || []; wgst = f.GUST || f.wgst || f.gust || [];
+    wdir = f.WINDDIR || f.wdir || f.winddir || []; tmp = f.TMPE || f.tmp || f.tmpe || []; waves = f.HTSGW || f.waves || f.htsgw || [];
   } else {
     return { ws:0, wg:0, wd:0, tp:0, wh:'—' };
   }
