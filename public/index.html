@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KiteDash — Perú Beach</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --deep:     #060e1c;
+      --electric: #00d4ff;
+      --wind:     #00ff9d;
+      --danger:   #ff4d6d;
+      --sand:     #f5c842;
+      --muted:    #4a6580;
+      --text:     #d6eaf8;
+      --card:     rgba(13,59,110,0.35);
+      --border:   rgba(0,212,255,0.15);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background:var(--deep); color:var(--text);
+      font-family:'DM Sans',sans-serif;
+      min-height:100vh; overflow-x:hidden;
+    }
+    body::before {
+      content:''; position:fixed; inset:0;
+      background:
+        radial-gradient(ellipse at 20% 50%,rgba(0,100,200,.15) 0%,transparent 60%),
+        radial-gradient(ellipse at 80% 20%,rgba(0,212,255,.08) 0%,transparent 50%),
+        radial-gradient(ellipse at 50% 100%,rgba(0,255,157,.05) 0%,transparent 50%);
+      pointer-events:none; z-index:0;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position:relative; z-index:10;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 24px;
+      border-bottom:1px solid var(--border);
+      background:rgba(6,14,28,.9);
+      backdrop-filter:blur(12px);
+    }
+    .logo { display:flex; align-items:center; gap:10px; }
+    .logo h1 {
+      font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:3px;
+      background:linear-gradient(135deg,var(--electric),var(--wind));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .header-right { display:flex; align-items:center; gap:14px; }
+    .live-badge {
+      display:flex; align-items:center; gap:6px;
+      font-family:'DM Mono',monospace; font-size:.62rem; letter-spacing:2px;
+      color:var(--wind); text-transform:uppercase;
+    }
+    .live-dot {
+      width:7px; height:7px; border-radius:50%;
+      background:var(--wind); animation:pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+    .spot-label {
+      font-family:'DM Mono',monospace; font-size:.65rem; letter-spacing:1.5px;
+      color:var(--electric); text-transform:uppercase; cursor:pointer;
+      border:1px solid var(--border); padding:5px 12px; border-radius:6px;
+      background:rgba(0,212,255,.06); transition:background .2s;
+    }
+    .spot-label:hover { background:rgba(0,212,255,.14); }
+
+    /* ── WIND STATUS BAR ── */
+    .wind-bar {
+      position:relative; z-index:10;
+      display:flex; align-items:center;
+      padding:0 24px;
+      background:rgba(0,212,255,.06);
+      border-bottom:1px solid var(--border);
+      overflow-x:auto; scrollbar-width:none;
+    }
+    .wind-bar::-webkit-scrollbar { display:none; }
+    .wind-stat {
+      display:flex; flex-direction:column; align-items:center;
+      padding:12px 20px; border-right:1px solid var(--border);
+      min-width:90px; flex-shrink:0;
+    }
+    .wind-stat:last-child { border-right:none; }
+    .wind-stat .label {
+      font-family:'DM Mono',monospace; font-size:.55rem;
+      letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:4px;
+    }
+    .wind-stat .value {
+      font-family:'Bebas Neue',sans-serif; font-size:1.8rem; line-height:1; color:var(--electric);
+    }
+    .wind-stat .unit { font-size:.6rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:2px; }
+    .wind-stat.good   .value { color:var(--wind); }
+    .wind-stat.danger .value { color:var(--danger); }
+    .wind-stat.warn   .value { color:var(--sand); }
+    .kite-go {
+      margin-left:auto; flex-shrink:0; padding:8px 20px;
+      background:linear-gradient(135deg,var(--wind),var(--electric));
+      color:var(--deep); font-family:'Bebas Neue',sans-serif;
+      font-size:1rem; letter-spacing:2px;
+      border:none; border-radius:6px; cursor:pointer; transition:opacity .2s;
+    }
+    .kite-go:hover { opacity:.85; }
+
+    /* ── GRID ── */
+    .grid {
+      position:relative; z-index:5;
+      display:grid; grid-template-columns:1fr 1fr;
+      gap:16px; padding:20px;
+      max-width:1500px; margin:0 auto;
+    }
+    .full-width { grid-column:1/-1; }
+
+    @media(max-width:768px) {
+      .grid { grid-template-columns:1fr; padding:12px; gap:12px; }
+      .wind-stat { padding:10px 14px; min-width:76px; }
+      .wind-stat .value { font-size:1.4rem; }
+      header { padding:14px 16px; }
+      .logo h1 { font-size:1.6rem; }
+    }
+
+    .card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:12px; backdrop-filter:blur(8px);
+      overflow:hidden; transition:border-color .3s;
+    }
+    .card:hover { border-color:rgba(0,212,255,.3); }
+    .card-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 18px 12px; border-bottom:1px solid var(--border);
+    }
+    .card-title { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:2px; color:var(--electric); }
+    .card-badge {
+      font-family:'DM Mono',monospace; font-size:.6rem;
+      letter-spacing:1.5px; text-transform:uppercase; color:var(--muted);
+      background:rgba(0,212,255,.08); padding:3px 8px; border-radius:4px; border:1px solid var(--border);
+    }
+
+    /* ══════════════════════════════════
+       FORECAST TABLE  (Windguru-style)
+    ══════════════════════════════════ */
+    .forecast-scroll {
+      overflow-x:auto;
+      padding:0;
+      scrollbar-width:thin;
+      scrollbar-color:rgba(0,212,255,.3) transparent;
+    }
+    .forecast-scroll::-webkit-scrollbar { height:4px; }
+    .forecast-scroll::-webkit-scrollbar-thumb { background:rgba(0,212,255,.3); border-radius:2px; }
+
+    .forecast-table {
+      border-collapse:collapse;
+      min-width:100%;
+      font-family:'DM Mono',monospace;
+    }
+
+    /* Day header row */
+    .forecast-table .row-day td {
+      background:rgba(0,0,0,.4);
+      border-right:1px solid var(--border);
+      padding:6px 0;
+      text-align:center;
+      font-family:'Bebas Neue',sans-serif;
+      font-size:.9rem;
+      letter-spacing:1.5px;
+      color:var(--electric);
+      white-space:nowrap;
+    }
+    .forecast-table .row-day td.day-sep {
+      border-left:2px solid rgba(0,212,255,.35);
+    }
+
+    /* Hour row */
+    .forecast-table .row-hour td {
+      background:rgba(0,0,0,.25);
+      border-right:1px solid var(--border);
+      padding:5px 8px;
+      text-align:center;
+      font-size:.65rem;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .forecast-table .row-hour td.day-sep { border-left:2px solid rgba(0,212,255,.35); }
+
+    /* Label column */
+    .forecast-table td.row-label {
+      position:sticky; left:0; z-index:2;
+      background:#0a1628;
+      padding:7px 14px 7px 16px;
+      font-size:.65rem; letter-spacing:1px;
+      color:var(--muted); text-transform:uppercase;
+      border-right:2px solid rgba(0,212,255,.2);
+      white-space:nowrap; min-width:140px;
+    }
+
+    /* Data cells */
+    .forecast-table td.fc-cell {
+      padding:5px 4px;
+      text-align:center;
+      font-size:.85rem;
+      font-weight:500;
+      border-right:1px solid rgba(0,212,255,.07);
+      min-width:52px;
+      white-space:nowrap;
+    }
+    .forecast-table td.fc-cell.day-sep { border-left:2px solid rgba(0,212,255,.25); }
+
+    /* Wind speed colour scale */
+    .ws-0  { background:#3a3a5c; color:#888; }
+    .ws-1  { background:#1e6b1e; color:#fff; }
+    .ws-2  { background:#2d8a2d; color:#fff; }
+    .ws-3  { background:#3aad3a; color:#fff; }
+    .ws-4  { background:#7fd44e; color:#111; }
+    .ws-5  { background:#c8e84e; color:#111; }
+    .ws-6  { background:#f5d800; color:#111; }
+    .ws-7  { background:#f59e00; color:#111; }
+    .ws-8  { background:#f56600; color:#fff; }
+    .ws-9  { background:#e83030; color:#fff; }
+    .ws-10 { background:#cc00cc; color:#fff; }
+
+    /* Gust colour scale */
+    .wg-0  { background:#2a2a44; color:#888; }
+    .wg-1  { background:#1a4a1a; color:#aaa; }
+    .wg-2  { background:#1e6b1e; color:#fff; }
+    .wg-3  { background:#2d8a2d; color:#fff; }
+    .wg-4  { background:#3aad3a; color:#fff; }
+    .wg-5  { background:#7fd44e; color:#111; }
+    .wg-6  { background:#c8e84e; color:#111; }
+    .wg-7  { background:#f5d800; color:#111; }
+    .wg-8  { background:#f59e00; color:#111; }
+    .wg-9  { background:#f56600; color:#fff; }
+    .wg-10 { background:#e83030; color:#fff; }
+    .wg-11 { background:#cc00cc; color:#fff; }
+
+    /* Temp colour */
+    .temp-cell { background:rgba(0,180,255,.15); color:var(--electric); }
+
+    /* Direction arrow cell */
+    .dir-cell { font-size:1.1rem; background:transparent; }
+
+    /* Wave cell */
+    .wave-cell { color:#7ec8e3; }
+
+    /* Tide cell */
+    .tide-row td.fc-cell { padding:2px 4px; }
+    .tide-bar-wrap {
+      display:flex; align-items:flex-end; justify-content:center;
+      height:28px;
+    }
+    .tide-bar {
+      width:8px; border-radius:2px 2px 0 0;
+      background:linear-gradient(to top,rgba(0,150,220,.4),rgba(0,212,255,.8));
+      transition:height .5s;
+    }
+
+    /* Rating stars */
+    .star-cell { font-size:.9rem; }
+
+    /* Table row alternation */
+    .forecast-table tr:nth-child(even) td.fc-cell:not([class*='ws-']):not([class*='wg-']):not(.temp-cell) {
+      background:rgba(255,255,255,.02);
+    }
+
+    /* Loading overlay */
+    .fc-loading {
+      display:flex; align-items:center; justify-content:center;
+      gap:10px; padding:40px 20px;
+      font-family:'DM Mono',monospace; font-size:.75rem;
+      letter-spacing:2px; color:var(--muted); text-transform:uppercase;
+    }
+    .fc-spinner {
+      width:18px; height:18px; border-radius:50%;
+      border:2px solid var(--border); border-top-color:var(--electric);
+      animation:spin .8s linear infinite;
+    }
+    @keyframes spin { to{ transform:rotate(360deg); } }
+
+    /* ── QUICK LAUNCH ── */
+    .launch-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:16px 18px;
+    }
+    @media(max-width:500px) { .launch-grid { grid-template-columns:1fr; } }
+    .launch-btn {
+      display:flex; align-items:center; gap:14px; padding:16px 18px;
+      background:rgba(0,0,0,.3); border:1px solid var(--border);
+      border-radius:10px; cursor:pointer; text-decoration:none;
+      transition:all .22s; position:relative; overflow:hidden;
+    }
+    .launch-btn::after {
+      content:''; position:absolute; inset:0; opacity:0; transition:opacity .22s;
+    }
+    .launch-btn.wg-forecast::after { background:linear-gradient(135deg,rgba(0,212,255,.1),transparent 70%); }
+    .launch-btn.wg-station::after  { background:linear-gradient(135deg,rgba(0,255,157,.1),transparent 70%); }
+    .launch-btn.windy::after       { background:linear-gradient(135deg,rgba(245,200,66,.1),transparent 70%); }
+    .launch-btn.tides::after       { background:linear-gradient(135deg,rgba(255,77,109,.1),transparent 70%); }
+    .launch-btn:hover { transform:translateY(-2px); border-color:rgba(0,212,255,.45); box-shadow:0 8px 24px rgba(0,0,0,.3); }
+    .launch-btn:hover::after { opacity:1; }
+    .launch-btn:active { transform:translateY(0); }
+    .launch-icon {
+      font-size:1.8rem; flex-shrink:0; width:52px; height:52px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:10px; background:rgba(0,0,0,.4); border:1px solid var(--border);
+    }
+    .launch-info { flex:1; min-width:0; }
+    .launch-name { font-family:'Bebas Neue',sans-serif; font-size:1.05rem; letter-spacing:1.5px; color:var(--text); margin-bottom:4px; }
+    .launch-desc { font-family:'DM Mono',monospace; font-size:.6rem; letter-spacing:.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .launch-pill {
+      font-family:'DM Mono',monospace; font-size:.5rem; letter-spacing:1.5px;
+      text-transform:uppercase; padding:2px 7px; border-radius:20px; margin-top:5px; display:inline-block;
+    }
+    .pill-blue  { background:rgba(0,212,255,.15); color:var(--electric); border:1px solid rgba(0,212,255,.3); }
+    .pill-green { background:rgba(0,255,157,.15); color:var(--wind);     border:1px solid rgba(0,255,157,.3); }
+    .pill-sand  { background:rgba(245,200,66,.15); color:var(--sand);    border:1px solid rgba(245,200,66,.3); }
+    .pill-red   { background:rgba(255,77,109,.15); color:var(--danger);  border:1px solid rgba(255,77,109,.3); }
+    .launch-arrow { font-size:1.2rem; color:var(--muted); flex-shrink:0; transition:transform .2s,color .2s; }
+    .launch-btn:hover .launch-arrow { transform:translateX(4px); color:var(--electric); }
+
+    /* ── COMPASS ── */
+    .compass-inner { padding:20px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+    .compass-wrap  { position:relative; width:160px; height:160px; }
+    .compass-ring  {
+      width:160px; height:160px; border-radius:50%;
+      border:2px solid var(--border); position:relative;
+      background:radial-gradient(circle at center,rgba(0,212,255,.05),transparent 70%);
+    }
+    .compass-ring::before { content:'N'; position:absolute; top:6px; left:50%; transform:translateX(-50%); font-family:'Bebas Neue',sans-serif; font-size:.9rem; color:var(--danger); }
+    .compass-ring::after  { content:'S'; position:absolute; bottom:6px; left:50%; transform:translateX(-50%); font-family:'Bebas Neue',sans-serif; font-size:.9rem; color:var(--muted); }
+    .compass-dir-e,.compass-dir-w { position:absolute; top:50%; transform:translateY(-50%); font-family:'Bebas Neue',sans-serif; font-size:.9rem; color:var(--muted); }
+    .compass-dir-e { right:8px; } .compass-dir-w { left:8px; }
+    .compass-needle {
+      position:absolute; top:50%; left:50%;
+      width:4px; height:60px; margin-left:-2px; margin-top:-50px;
+      transform-origin:bottom center;
+      transition:transform 1s cubic-bezier(.34,1.56,.64,1);
+    }
+    .needle-up  { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-bottom:46px solid var(--electric); margin:0 auto; filter:drop-shadow(0 0 6px var(--electric)); }
+    .needle-down { width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:18px solid var(--muted); margin:0 auto; }
+    .compass-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; background:var(--electric); box-shadow:0 0 10px var(--electric); z-index:2; }
+    .compass-readout { text-align:center; }
+    .compass-readout .deg { font-family:'Bebas Neue',sans-serif; font-size:2.2rem; color:var(--electric); line-height:1; }
+    .compass-readout .dir-name { font-family:'DM Mono',monospace; font-size:.7rem; letter-spacing:3px; color:var(--wind); text-transform:uppercase; }
+
+    /* ── KITE REC ── */
+    .kite-rec-inner { padding:18px; }
+    .kite-sizes { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+    .kite-chip { padding:6px 14px; border-radius:20px; font-family:'DM Mono',monospace; font-size:.75rem; letter-spacing:1px; border:1px solid var(--border); color:var(--muted); background:rgba(0,0,0,.2); transition:all .3s; }
+    .kite-chip.active   { background:linear-gradient(135deg,rgba(0,212,255,.2),rgba(0,255,157,.15)); border-color:var(--wind); color:var(--wind); box-shadow:0 0 12px rgba(0,255,157,.2); }
+    .kite-chip.secondary{ border-color:rgba(0,212,255,.4); color:var(--electric); background:rgba(0,212,255,.08); }
+    .rec-note { font-size:.78rem; color:var(--muted); line-height:1.5; font-family:'DM Sans',sans-serif; }
+    .rec-note strong { color:var(--text); }
+
+    footer {
+      position:relative; z-index:5; text-align:center; padding:14px;
+      font-family:'DM Mono',monospace; font-size:.6rem; letter-spacing:2px;
+      color:var(--muted); text-transform:uppercase; border-top:1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+      <polygon points="18,2 34,18 18,30 2,18" fill="none" stroke="#00d4ff" stroke-width="1.5"/>
+      <line x1="18" y1="2" x2="18" y2="34" stroke="#00ff9d" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="2" y1="18" x2="34" y2="18" stroke="#00ff9d" stroke-width="1" stroke-dasharray="3,3"/>
+      <circle cx="18" cy="18" r="2.5" fill="#00d4ff"/>
+    </svg>
+    <h1>KiteDash</h1>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>Live</div>
+    <div class="spot-label" onclick="openSpotInfo()">📍 Perú Beach</div>
+  </div>
+</header>
+
+<!-- WIND STATUS BAR -->
+<div class="wind-bar">
+  <div class="wind-stat good" id="stat-now">
+    <span class="label">Now</span>
+    <span class="value" id="wind-now">—</span>
+    <span class="unit">KTS</span>
+  </div>
+  <div class="wind-stat" id="stat-gust">
+    <span class="label">Gust</span>
+    <span class="value" id="wind-gust">—</span>
+    <span class="unit">KTS</span>
+  </div>
+  <div class="wind-stat">
+    <span class="label">Direction</span>
+    <span class="value" id="wind-dir-text">—</span>
+    <span class="unit" id="wind-dir-deg">—</span>
+  </div>
+  <div class="wind-stat">
+    <span class="label">Temp</span>
+    <span class="value" id="wind-temp">—</span>
+    <span class="unit">°C</span>
+  </div>
+  <div class="wind-stat">
+    <span class="label">Waves</span>
+    <span class="value" id="wind-waves">—</span>
+    <span class="unit">M</span>
+  </div>
+
+</div>
+
+<!-- GRID -->
+<div class="grid">
+
+  <!-- ══ FORECAST TABLE ══ -->
+  <div class="card full-width">
+    <div class="card-header">
+      <span class="card-title">⚡ 5-Day Forecast — Perú Beach</span>
+      <span class="card-badge" id="fc-updated">Loading…</span>
+    </div>
+    <div class="forecast-scroll" id="forecastWrap">
+      <div class="fc-loading">
+        <div class="fc-spinner"></div>
+        Fetching live forecast…
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK LAUNCH -->
+  <div class="card full-width">
+    <div class="card-header">
+      <span class="card-title">🚀 Quick Launch</span>
+      <span class="card-badge">Opens in new tab</span>
+    </div>
+    <div class="launch-grid">
+      <a class="launch-btn wg-forecast" href="https://www.windguru.cz/88345" target="_blank" rel="noopener">
+        <div class="launch-icon">⚡</div>
+        <div class="launch-info">
+          <div class="launch-name">Perú Beach Forecast</div>
+          <div class="launch-desc">windguru.cz/88345</div>
+          <span class="launch-pill pill-blue">Forecast · GFS + WRF</span>
+        </div>
+        <span class="launch-arrow">→</span>
+      </a>
+      <a class="launch-btn wg-station" href="https://www.windguru.cz/station/2042" target="_blank" rel="noopener">
+        <div class="launch-icon">📡</div>
+        <div class="launch-info">
+          <div class="launch-name">CNSI Live Station</div>
+          <div class="launch-desc">Club Náutico San Isidro</div>
+          <span class="launch-pill pill-green">Live Wind · Real Anemometer</span>
+        </div>
+        <span class="launch-arrow">→</span>
+      </a>
+      <a class="launch-btn windy" href="https://www.windy.com/-34.467/-58.512?wind,surface,-34.467,-58.512,12" target="_blank" rel="noopener">
+        <div class="launch-icon">🌀</div>
+        <div class="launch-info">
+          <div class="launch-name">Windy · Spot View</div>
+          <div class="launch-desc">Acassuso — Río de la Plata</div>
+          <span class="launch-pill pill-sand">Animated Map · ECMWF</span>
+        </div>
+        <span class="launch-arrow">→</span>
+      </a>
+      <a class="launch-btn tides" href="https://www.windguru.cz/88345" target="_blank" rel="noopener">
+        <div class="launch-icon">🌊</div>
+        <div class="launch-info">
+          <div class="launch-name">Tides · Perú Beach</div>
+          <div class="launch-desc">windguru.cz/88345 → Tides tab</div>
+          <span class="launch-pill pill-red">Tide Table</span>
+        </div>
+        <span class="launch-arrow">→</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- COMPASS -->
+  <div class="card full-width">
+    <div class="card-header">
+      <span class="card-title">🧭 Wind Direction</span>
+      <span class="card-badge">Live</span>
+    </div>
+    <div class="compass-inner">
+      <div class="compass-wrap">
+        <div class="compass-ring">
+          <span class="compass-dir-e">E</span>
+          <span class="compass-dir-w">W</span>
+          <div class="compass-needle" id="compassNeedle">
+            <div class="needle-up"></div>
+            <div class="needle-down"></div>
+          </div>
+          <div class="compass-center"></div>
+        </div>
+      </div>
+      <div class="compass-readout">
+        <div class="deg" id="compassDeg">—</div>
+        <div class="dir-name" id="compassDirName">—</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  KiteDash · Perú Beach, Acassuso · Windguru + Windy · Buenos Aires 🇦🇷 · Updated <span id="lastUpdate">—</span>
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════
+const LAT  = -34.467;
+const LON  = -58.512;
+const HOURS_TO_SHOW = 5 * 24; // 5 days
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+const dirLabels = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const dirFullNames = {
+  N:'North', NNE:'North-Northeast', NE:'Northeast', ENE:'East-Northeast',
+  E:'East', ESE:'East-Southeast', SE:'Southeast', SSE:'South-Southeast',
+  S:'South', SSW:'South-Southwest', SW:'Southwest', WSW:'West-Southwest',
+  W:'West', WNW:'West-Northwest', NW:'Northwest', NNW:'North-Northwest'
+};
+
+function degToLabel(deg) {
+  const idx = Math.round(deg / 22.5) % 16;
+  return dirLabels[idx];
+}
+
+// Arrow character from meteorological wind direction (where wind comes FROM)
+function dirArrow(deg) {
+  // Arrow points in the direction the wind is GOING (opposite of where it comes from)
+  const arrows = ['↓','↙','↙','↙','←','↖','↖','↖','↑','↗','↗','↗','→','↘','↘','↘'];
+  const idx = Math.round(deg / 22.5) % 16;
+  return arrows[idx];
+}
+
+// ms to knots
+function msToKts(ms) { return Math.round(ms * 1.94384); }
+
+// Wind speed colour class
+function wsClass(kts) {
+  if (kts < 5)  return 'ws-0';
+  if (kts < 8)  return 'ws-1';
+  if (kts < 11) return 'ws-2';
+  if (kts < 14) return 'ws-3';
+  if (kts < 17) return 'ws-4';
+  if (kts < 20) return 'ws-5';
+  if (kts < 23) return 'ws-6';
+  if (kts < 26) return 'ws-7';
+  if (kts < 30) return 'ws-8';
+  if (kts < 35) return 'ws-9';
+  return 'ws-10';
+}
+function wgClass(kts) {
+  if (kts < 5)  return 'wg-0';
+  if (kts < 8)  return 'wg-1';
+  if (kts < 11) return 'wg-2';
+  if (kts < 14) return 'wg-3';
+  if (kts < 17) return 'wg-4';
+  if (kts < 20) return 'wg-5';
+  if (kts < 23) return 'wg-6';
+  if (kts < 26) return 'wg-7';
+  if (kts < 30) return 'wg-8';
+  if (kts < 35) return 'wg-9';
+  if (kts < 40) return 'wg-10';
+  return 'wg-11';
+}
+
+function kiteRating(kts) {
+  if (kts >= 15 && kts <= 28) return '★★★';
+  if ((kts >= 12 && kts < 15) || (kts > 28 && kts <= 33)) return '★★';
+  if ((kts >= 8 && kts < 12) || (kts > 33 && kts <= 38)) return '★';
+  return '';
+}
+
+function updateTimestamp() {
+  document.getElementById('lastUpdate').textContent =
+    new Date().toLocaleTimeString('en-AR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function wsToKts(ms) { return Math.round((ms||0) * 1.94384); }
+
+// ══════════════════════════════════════════════════════
+//  WINDGURU FETCH (via Netlify proxy)
+// ══════════════════════════════════════════════════════
+async function fetchWindguru() {
+  const res = await fetch('/.netlify/functions/windguru');
+  if (!res.ok) throw new Error('Windguru proxy error ' + res.status);
+  return await res.json();
+}
+
+async function fetchStation() {
+  const res = await fetch('/.netlify/functions/station');
+  if (!res.ok) throw new Error('Station proxy error ' + res.status);
+  return await res.json();
+}
+
+
+// ══════════════════════════════════════════════════════
+//  BUILD TABLE — Windguru data shape
+//  WG forecast JSON keys: wspd[], wgst[], wdir[], tmp[], waves[], wpckg[]
+//  hours[] are unix timestamps, initdate is the model run date
+// ══════════════════════════════════════════════════════
+function buildTableFromWG(wg) {
+  // wg.hours = array of unix timestamps (seconds)
+  // wg.wspd  = wind speed in m/s (convert to kts)
+  // wg.wgst  = gusts in m/s
+  // wg.wdir  = direction degrees
+  // wg.tmp   = temperature °C
+  // wg.waves (optional swell)
+
+  const hours   = wg.hours   || [];
+  const wsArr   = wg.wspd    || [];
+  const wgArr   = wg.wgst    || [];
+  const wdArr   = wg.wdir    || [];
+  const tmpArr  = wg.tmp     || [];
+  const waveArr = wg.waves   || [];
+  const waveDArr= wg.wdirwaves || [];
+
+  const now  = Date.now();
+  const nowS = Math.floor(now / 1000);
+
+  // Filter: from current hour, every 2h
+  const indices = [];
+  for (let i = 0; i < hours.length; i++) {
+    if (hours[i] < nowS - 3600) continue;
+    // get local hour
+    const d = new Date(hours[i] * 1000);
+    if (d.getHours() % 2 !== 0) continue;
+    indices.push(i);
+    if (indices.length >= 60) break;
+  }
+
+  // Group by day
+  const dayGroups = {};
+  indices.forEach(i => {
+    const d   = new Date(hours[i] * 1000);
+    const key = d.toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric'});
+    if (!dayGroups[key]) dayGroups[key] = [];
+    dayGroups[key].push(i);
+  });
+
+  return renderTableRows(dayGroups, (i, cs) => {
+    const d  = new Date(hours[i] * 1000);
+    const hr = d.getHours().toString().padStart(2,'0') + 'h';
+    const ws = wsToKts(wsArr[i] || 0);
+    const wg = wsToKts(wgArr[i] || 0);
+    const wd = Math.round(wdArr[i] || 0);
+    const tp = Math.round(tmpArr[i] ?? 0);
+    const wh = waveArr[i] != null ? Number(waveArr[i]).toFixed(1) : (marine?.[i] ?? '—');
+    const wdw = waveDArr[i] != null ? Math.round(waveDArr[i]) : wd;
+    return { hr, ws, wg, wd, tp, wh, wdw, cs };
+  });
+}
+
+
+// ══════════════════════════════════════════════════════
+//  SHARED TABLE RENDERER
+// ══════════════════════════════════════════════════════
+function renderTableRows(dayGroups, cellFn) {
+  let dayRow  = '<tr class="row-day"><td class="row-label"></td>';
+  let hourRow = '<tr class="row-hour"><td class="row-label">Hour</td>';
+  let wsRow   = '<tr><td class="row-label">Wind (kts)</td>';
+  let wgRow   = '<tr><td class="row-label">Gusts (kts)</td>';
+  let wdRow   = '<tr><td class="row-label">Direction</td>';
+  let tempRow = '<tr><td class="row-label">Temp (°C)</td>';
+  let waveRow = '<tr><td class="row-label">Wave (m)</td>';
+  let waveDRow= '<tr><td class="row-label">Wave dir</td>';
+  let starRow = '<tr><td class="row-label">Kite Rating</td>';
+
+  let firstDay = true;
+  Object.entries(dayGroups).forEach(([day, idxArr]) => {
+    const sepClass = firstDay ? '' : ' day-sep';
+    firstDay = false;
+    dayRow += `<td class="fc-cell${sepClass}" colspan="${idxArr.length}" style="text-align:center;font-family:'Bebas Neue',sans-serif;letter-spacing:2px;color:var(--electric);background:rgba(0,0,0,.4);">${day}</td>`;
+
+    idxArr.forEach((i, pos) => {
+      const cs = pos === 0 ? sepClass : '';
+      const { hr, ws, wg, wd, tp, wh, wdw } = cellFn(i, cs);
+      hourRow += `<td class="fc-cell${cs}">${hr}</td>`;
+      wsRow   += `<td class="fc-cell${cs} ${wsClass(ws)}">${ws}</td>`;
+      wgRow   += `<td class="fc-cell${cs} ${wgClass(wg)}">${wg}</td>`;
+      wdRow   += `<td class="fc-cell${cs} dir-cell" title="${degToLabel(wd)} ${wd}°">${dirArrow(wd)}</td>`;
+      tempRow += `<td class="fc-cell${cs} temp-cell">${tp}</td>`;
+      waveRow += `<td class="fc-cell${cs} wave-cell">${wh}</td>`;
+      waveDRow+= `<td class="fc-cell${cs} dir-cell" title="${wdw}°">${dirArrow(wdw)}</td>`;
+      starRow += `<td class="fc-cell${cs} star-cell" style="color:var(--sand)">${kiteRating(ws)}</td>`;
+    });
+  });
+
+  return `<table class="forecast-table">
+    ${dayRow}</tr>${hourRow}</tr>${wsRow}</tr>${wgRow}</tr>
+    ${wdRow}</tr>${tempRow}</tr>${waveRow}</tr>${waveDRow}</tr>${starRow}</tr>
+  </table>`;
+}
+
+// ══════════════════════════════════════════════════════
+//  UPDATE LIVE STATS BAR + COMPASS
+// ══════════════════════════════════════════════════════
+function updateLiveStats({ ws, wg, wd, tp, wh }) {
+  document.getElementById('wind-now').textContent      = ws;
+  document.getElementById('wind-gust').textContent     = wg;
+  document.getElementById('wind-dir-text').textContent = degToLabel(wd);
+  document.getElementById('wind-dir-deg').textContent  = wd + '°';
+  document.getElementById('wind-temp').textContent     = tp;
+  document.getElementById('wind-waves').textContent    = wh;
+
+  document.getElementById('stat-now').className  = 'wind-stat ' + (ws < 10 ? 'warn' : ws > 30 ? 'danger' : 'good');
+  document.getElementById('stat-gust').className = 'wind-stat ' + (wg > 35 ? 'danger' : wg > 25 ? 'warn' : '');
+
+  document.getElementById('compassNeedle').style.transform = `rotate(${wd}deg)`;
+  document.getElementById('compassDeg').textContent        = wd + '°';
+  document.getElementById('compassDirName').textContent    = dirFullNames[degToLabel(wd)] || degToLabel(wd);
+}
+
+function liveStatsFromWG(wg) {
+  const nowS = Math.floor(Date.now() / 1000);
+  let idx = 0;
+  for (let i = 0; i < (wg.hours||[]).length; i++) {
+    if (wg.hours[i] <= nowS) idx = i; else break;
+  }
+  return {
+    ws: wsToKts(wg.wspd?.[idx] || 0),
+    wg: wsToKts(wg.wgst?.[idx] || 0),
+    wd: Math.round(wg.wdir?.[idx] || 0),
+    tp: Math.round(wg.tmp?.[idx] ?? 0),
+    wh: wg.waves?.[idx] != null ? Number(wg.waves[idx]).toFixed(1) : '—',
+  };
+}
+
+
+// ══════════════════════════════════════════════════════
+//  ALERTS
+// ══════════════════════════════════════════════════════
+function openSpotInfo() {
+  alert('📍 Perú Beach — Acassuso, San Isidro\nWindguru ID: 88345\n\n🪁 Great kite spot · Río de la Plata\n💨 Season: March–November\n🌊 Flat water / chop\n🧭 Prevailing winds: N, NE, SE, S\n\nLive station: CNSI · ID 2042');
+}
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+async function init() {
+  const wrap    = document.getElementById('forecastWrap');
+  const badge   = document.getElementById('fc-updated');
+  const nowTime = () => new Date().toLocaleTimeString('en-AR',{hour:'2-digit',minute:'2-digit'});
+
+  try {
+    const wg = await fetchWindguru();
+
+    // Try live station for the wind bar, fall back to forecast current hour
+    let stats;
+    try {
+      const st = await fetchStation();
+      if (st.data && st.data.length > 0) {
+        const latest = st.data[st.data.length - 1];
+        stats = {
+          ws: Math.round((latest.wind_avg || 0) * 1.94384),
+          wg: Math.round((latest.wind_max || 0) * 1.94384),
+          wd: Math.round(latest.wind_direction || 0),
+          tp: Math.round(latest.temperature || wg.tmp?.[0] || 0),
+          wh: '—',
+        };
+        badge.textContent = 'Windguru · CNSI Live · ' + nowTime();
+      } else {
+        throw new Error('no station data');
+      }
+    } catch(_) {
+      stats = liveStatsFromWG(wg);
+      badge.textContent = 'Windguru · WG Mix · ' + nowTime();
+    }
+
+    wrap.innerHTML = buildTableFromWG(wg);
+    updateLiveStats(stats);
+    updateTimestamp();
+
+    setTimeout(init, 10 * 60 * 1000);
+
+  } catch(e) {
+    console.error('Forecast error:', e);
+    wrap.innerHTML = `<div class="fc-loading" style="color:var(--danger)">⚠ Could not load forecast — make sure the site is deployed on Netlify.</div>`;
+    badge.textContent = 'Error';
+  }
+}
+
+init();
+</script>
+</body>
+</html>
